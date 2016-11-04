@@ -1,0 +1,189 @@
+<html>
+	<head>
+	</head>
+	<body>
+	<script>
+		
+		var db;
+		
+		function indexedDBOK(){
+			return "indexedDB" in window;
+		}
+	
+		document.addEventListener("DOMContentLoaded",function(){
+			
+			if(!indexedDBOK) return;
+			
+				var openRequest = indexedDB.open("idarticle_people4");
+				
+				openRequest.onupgradeneeded = function(e){
+					console.log("running upgrading");
+					db = e.target.result;
+					
+					if(!db.objectStoreNames.contains("people")){
+						var objectStore = db.createObjectStore("people",{autoIncrement: true});
+						objectStore.createIndex("name","name",{unique :false});
+						objectStore.createIndex("email","email",{unique:true});
+					}
+					document.querySelector("#addPerson").addEventListener("click",addPersonFun,false);
+				};
+				
+				openRequest.onsuccess = function(e){
+					console.log("running success");
+					db =e.target.result;
+					
+					document.querySelector("#addPerson").addEventListener("click",addPersonFun,false);
+					
+					
+				}
+				
+				openRequest.onerror = function(e){
+					console.log("error");
+					console.log(e);
+					alert("error");
+				}
+			
+		},false);
+		
+		function addPersonFun(){
+			
+			var name = document.querySelector("#name").value;
+
+			var email =  document.querySelector("#email").value;
+
+			var trans = db.transaction(["people"],"readwrite");
+			var store = trans.objectStore("people");
+			
+			var person = {name : name , email : email};
+			
+			var request = store.add(person);
+			
+			request.onerror= function(e){
+				console.log("Error in adding ",e.target.error.name);
+			};
+			
+			request.onsuccess = function(e){
+				console.log("successfully added" );
+			};
+		};
+		
+		function getPerson(){
+		
+			var searchKey = document.querySelector("#searchKey").value;
+			console.log("search key-->" + searchKey);
+			
+			var transaction = db.transaction(["people"],"readonly");
+			var objectstore = transaction.objectStore("people");
+			
+			var objectRequest = objectstore.get(Number(searchKey));
+			
+			objectRequest.onsuccess  = function (e){
+				var result = e.target.result;
+				
+				console.log(result);
+				
+				document.querySelector("#resultDiv").innerHTML = result.name + result.email;
+				//document.querySelector("result").innerHTML;
+			}
+			
+		};
+		
+		function getPersonByNameIndex(){
+			
+			var searchKey = document.querySelector("#personbyindex").value;
+		
+			var trans = db.transaction(["people"],"readonly");
+			var objectStore = trans.objectStore("people");
+			var index = objectStore.index("name");
+			
+			var request = index.get(searchKey);
+			
+			request.onsuccess = function(e) {
+ 
+				var result = e.target.result;
+				if(result) {
+					var s = "Name "+name;
+					for(var field in result) {
+						s+= field+"="+result[field]+"<br>";
+					}
+					document.querySelector("#everyPersonByIndex").innerHTML = s;
+				} else {
+					document.querySelector("#everyPersonByIndex").innerHTML = "&lt;h2>No match&lt;/h2>";
+				}   
+			}
+			
+		}
+		
+		function getEveryone(){
+			console.log("get everyone function");
+			
+			var trans = db.transaction(["people"],"readonly");
+			var objectStore = trans.objectStore("people");
+			
+			var peoplecursor = objectStore.openCursor();
+			
+			var s = "";
+			
+			peoplecursor.onsuccess = function (e){
+				var cursor = e.target.result;
+				if(cursor){
+					s += "---key--" + cursor.key + "<br>";
+					
+					for(var field in cursor.value){
+						s += field+"=" + cursor.value[field]+ "<br>";
+					}
+					s += "<br><br>";
+					cursor.continue();
+				}
+				
+				document.querySelector("#everyPerson").innerHTML = s;
+				
+			};
+			
+		};
+	</script>
+	
+	<h1>Indexed DB POC</h1>
+	
+	<table>
+		<tr>
+			<td><input type="text" id="name" placeholder="name"></input></td>
+		</tr>
+		<tr>
+			<td><input type="text" id="email" placeholder="email"></input></td>
+		</tr>
+		<tr>
+			<td><button id="addPerson">Add person</button></td>
+		</tr>
+		<br>
+		<tr>
+			<td>
+				<input type="text" id="searchKey" placeholder="enter person key"></input>
+			</td>
+		</tr>
+		<tr>
+			<td><button id="getPersonID" onclick="getPerson();">get Person</button></td>
+		</tr>
+		<tr>
+			<td><div id="resultDiv"></td>
+		</tr>
+		<tr>
+			<td><button id="getEveryoneButton" onclick="getEveryone();">Get Everyone</button></td>
+		</tr>
+		<tr>
+			<td><div id="everyPerson"></div></td>
+		</tr>
+		<tr>
+			<td>
+				<input type="text" id="personbyindex" placeholder="enter person key"></input>
+			</td>
+		</tr>
+		<tr>
+			<td><button onclick="getPersonByNameIndex();">Get person by index</button></td>
+		</tr>
+		<tr>
+			<td><div id="everyPersonByIndex"></div></td>
+		</tr>
+	</table>
+	</body>
+</html>
